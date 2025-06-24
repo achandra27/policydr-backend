@@ -2,3 +2,8 @@ fastapi
 uvicorn[standard]
 python-multipart
 pydantic
+openai
+langchain
+faiss-cpu
+PyMuPDF
+tiktoken
