@@ -75,12 +75,21 @@ async def ask_question(req: AskRequest):
     if not vectorstore:
         raise HTTPException(status_code=404, detail="Invalid session_id or session expired.")
 
+    # Use ChatGPT 3.5-turbo for cost-effective responses
     qa_chain = RetrievalQA.from_chain_type(
-        llm=ChatOpenAI(temperature=0),
+        llm=ChatOpenAI(model="gpt-3.5-turbo", temperature=0),
         retriever=vectorstore.as_retriever()
     )
+
+    # Uncomment below to use GPT-4 (higher cost, better performance)
+    # qa_chain = RetrievalQA.from_chain_type(
+    #     llm=ChatOpenAI(model="gpt-4", temperature=0),
+    #     retriever=vectorstore.as_retriever()
+    # )
+
     answer = qa_chain.run(req.query)
     return {"answer": answer}
+
 
 if __name__ == "__main__":
     import uvicorn
