@@ -81,3 +81,8 @@ async def ask_question(req: AskRequest):
     )
     answer = qa_chain.run(req.query)
     return {"answer": answer}
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))  # default for local dev
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
