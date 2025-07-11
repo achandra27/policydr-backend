@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from typing import Dict
 import os
 import uuid
@@ -11,6 +12,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
+import openai
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -75,23 +77,40 @@ async def ask_question(req: AskRequest):
     if not vectorstore:
         raise HTTPException(status_code=404, detail="Invalid session_id or session expired.")
 
-    # Use ChatGPT 3.5-turbo for cost-effective responses
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=ChatOpenAI(model="gpt-3.5-turbo", temperature=0),
-        retriever=vectorstore.as_retriever()
-    )
+    try:
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=ChatOpenAI(model="gpt-3.5-turbo", temperature=0),
+            retriever=vectorstore.as_retriever()
+        )
 
-    # Uncomment below to use GPT-4 (higher cost, better performance)
-    # qa_chain = RetrievalQA.from_chain_type(
-    #     llm=ChatOpenAI(model="gpt-4", temperature=0),
-    #     retriever=vectorstore.as_retriever()
-    # )
+        answer = qa_chain.run(req.query)
+        return {"answer": answer}
 
-    answer = qa_chain.run(req.query)
-    return {"answer": answer}
+    except openai.error.RateLimitError:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "answer": "AI temporarily unavailable due to quota limits. Please try again later.",
+                "sources": []
+            }
+        )
 
+    except openai.error.OpenAIError as e:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "answer": "Sorry, an error occurred while processing your query.",
+                "sources": [],
+                "debug": str(e)
+            }
+        )
 
-#if __name__ == "__main__":
- #   import uvicorn
-  #  port = int(os.environ.get("PORT", 10000))  # default for local dev
-   # uvicorn.run("main:app", host="0.0.0.0", port=port)
+    except Exception as e:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "answer": "An unexpected error occurred.",
+                "sources": [],
+                "debug": str(e)
+            }
+        )
